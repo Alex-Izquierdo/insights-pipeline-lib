@@ -373,6 +373,10 @@ def runIQE(String plugin, Map appOptions) {
         if (errorMsgSequential || errorMsgParallel) {
             error("${errorMsgSequential} ${errorMsgParallel}")
         }
+
+        if (env.SCREENSHOTS_DIR) {
+            archiveArtifacts env.SCREENSHOTS_DIR
+        }
     }
 
     catchError {
