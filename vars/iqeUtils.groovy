@@ -262,6 +262,7 @@ def runIQE(String plugin, Map appOptions) {
             ),
             returnStatus: true
         )
+
         // status code 5 means no tests collected
         if (collectionStatus == 5) {
             noTests = true
@@ -373,6 +374,8 @@ def runIQE(String plugin, Map appOptions) {
         if (errorMsgSequential || errorMsgParallel) {
             error("${errorMsgSequential} ${errorMsgParallel}")
         }
+
+        // error("**** DEBUG: more info for screenshots.  SCREENSHOTS_DIR = ${env.SCREENSHOTS_DIR}")
 
         if (env.SCREENSHOTS_DIR) {
             archiveArtifacts env.SCREENSHOTS_DIR
