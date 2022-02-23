@@ -202,7 +202,6 @@ def runIQE(String plugin, Map appOptions) {
     def browserlog = ''
     def reportportalArgs = ''
     def netlog = ''
-    def xdistArgs = ''
 
     if (appOptions['filter']) {
         filterArgs = "-k \"${appOptions['filter']}\""
