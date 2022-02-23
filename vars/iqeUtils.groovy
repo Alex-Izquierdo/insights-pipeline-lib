@@ -33,9 +33,7 @@
  *     def results = pipelineUtils.runParallel(iqeUtils.prepareStages(options, appConfigs))
  */
 
-
 import java.util.ArrayList
-
 
 private def parseOptions(Map options) {
     /*
@@ -49,7 +47,7 @@ private def parseOptions(Map options) {
 
     // the container image that the tests will run with in OpenShift
     // we use a ternary here to deal with the empty string
-    options['image'] = options.get('image') ? options.get("image") : pipelineVars.iqeCoreImage
+    options['image'] = options.get('image') ? options.get('image') : pipelineVars.iqeCoreImage
 
     // the namespace that the test pods run in
     options['namespace'] = options.get('namespace')
@@ -61,16 +59,16 @@ private def parseOptions(Map options) {
     options['marker'] = options.get('marker', pipelineVars.defaultMarker)
 
     // the pytest filter expression (-k) used when running tests
-    options['filter'] = options.get('filter', "")
+    options['filter'] = options.get('filter', '')
 
     // the iqe --requirements expression used when running tests
-    options['requirements'] = options.get('requirements', "")
+    options['requirements'] = options.get('requirements', '')
 
     // the iqe --requirements-priority expression used when running tests
-    options['requirementsPriority'] = options.get('requirementsPriority', "")
+    options['requirementsPriority'] = options.get('requirementsPriority', '')
 
     // the iqe --test-importance filter expression used when running tests
-    options['testImportance'] = options.get('testImportance', "")
+    options['testImportance'] = options.get('testImportance', '')
 
     // whether or not to spin up a jenkins pod for running the tests
     options['allocateNode'] = options.get('allocateNode', true)
@@ -102,11 +100,14 @@ private def parseOptions(Map options) {
         'settingsGitPath', "configs/default-${envName}-settings.yaml")
 
     // if loading settings from git, the repo branch
-    options['settingsGitBranch'] = options.get('settingsGitBranch', "master")
+    options['settingsGitBranch'] = options.get('settingsGitBranch', 'master')
 
     // if loading settings from git, the Jenkins credentials ID for github authentication
     options['settingsGitCredentialsId'] = options.get(
         'settingsGitCredentialsId', pipelineVars.gitHttpCreds)
+
+    // enable pytest-xdist
+    options['xdistEnabled'] = options.get('xdistEnabled', true)
 
     // number of pytest-xdist workers to use for parallel tests
     options['parallelWorkerCount'] = options.get('parallelWorkerCount', 2)
@@ -159,7 +160,6 @@ private def parseOptions(Map options) {
     return options
 }
 
-
 private def mergeAppOptions(Map options, Map appOptions) {
     /* Merge an app's options with the default options */
     if (!appOptions instanceof Map) {
@@ -174,12 +174,11 @@ private def mergeAppOptions(Map options, Map appOptions) {
 
     // Support compatibility w/ smoke test syntax which specifies markers as a list of strings
     if (mergedOptions['marker'] instanceof java.util.ArrayList) {
-        mergedOptions['marker'] = mergedOptions['marker'].join(" or ")
+        mergedOptions['marker'] = mergedOptions['marker'].join(' or ')
     }
 
     return mergedOptions
 }
-
 
 def runIQE(String plugin, Map appOptions) {
     /*
@@ -195,14 +194,14 @@ def runIQE(String plugin, Map appOptions) {
     def noParallelTests = false
     def noSequentialTests = false
 
-    def filterArgs = ""
-    def requirementsArgs = ""
-    def requirementsPriorityArgs = ""
-    def testImportanceArgs = ""
-    def ibutsuArgs = ""
-    def browserlog = ""
-    def reportportalArgs = ""
-    def netlog = ""
+    def filterArgs = ''
+    def requirementsArgs = ''
+    def requirementsPriorityArgs = ''
+    def testImportanceArgs = ''
+    def ibutsuArgs = ''
+    def browserlog = ''
+    def reportportalArgs = ''
+    def netlog = ''
 
     if (appOptions['filter']) {
         filterArgs = "-k \"${appOptions['filter']}\""
@@ -220,29 +219,33 @@ def runIQE(String plugin, Map appOptions) {
         testImportanceArgs = "--test-importance=${appOptions['testImportance']}"
     }
 
-    if (appOptions["reportportal"]) {
-        reportportalArgs = "--reportportal"
+    if (appOptions['reportportal']) {
+        reportportalArgs = '--reportportal'
     }
 
     if (appOptions['ibutsu']) {
         ibutsuArgs = "-o ibutsu_server=${appOptions['ibutsuUrl']} -o ibutsu_source=${env.BUILD_TAG}"
     }
 
-    if (appOptions["browserlog"]) {
-        browserlog = "--browserlog"
+    if (appOptions['browserlog']) {
+        browserlog = '--browserlog'
     }
 
-    if (appOptions["netlog"]) {
-        netlog = "--netlog"
+    if (appOptions['netlog']) {
+        netlog = '--netlog'
+    }
+
+    if (appOptions['xdistEnabled']) {
+        xdistArgs = "-n ${appOptions['parallelWorkerCount']}"
     }
 
     def marker = appOptions['marker']
     def extraArgs = appOptions['extraArgs']
 
-    catchError(stageResult: "FAILURE") {
+    catchError(stageResult: 'FAILURE') {
         // run parallel tests
-        def errorMsgParallel = ""
-        def errorMsgSequential = ""
+        def errorMsgParallel = ''
+        def errorMsgSequential = ''
         def markerArgs = marker ? "-m \"parallel and (${marker})\"" : "-m \"parallel\""
         // export the .env file to load env vars that should be present even before dynaconf is
         // invoked such as IQE_TESTS_LOCAL_CONF_PATH
@@ -250,7 +253,7 @@ def runIQE(String plugin, Map appOptions) {
         // check that there are actually tests to run
         collectionStatus = sh(
             script: (
-                """
+                '''
                 set +x && export \$(cat "${env.WORKSPACE}/.env" | xargs) && set -x && \
                 iqe tests plugin ${plugin} -s -v --collect-only \
                 ${markerArgs} \
@@ -259,7 +262,7 @@ def runIQE(String plugin, Map appOptions) {
                 ${requirementsPriorityArgs} \
                 ${testImportanceArgs} \
                 ${extraArgs} \
-                """.stripIndent()
+                '''.stripIndent()
             ),
             returnStatus: true
         )
@@ -268,14 +271,14 @@ def runIQE(String plugin, Map appOptions) {
             noParallelTests = true
         }
         else if (collectionStatus > 0) {
-            result = "FAILURE"
+            result = 'FAILURE'
             errorMsgParallel = "Parallel test run collection failed with exit code ${status}"
         }
         // only run tests when the collection status is 0
         else {
             status = sh(
                 script: (
-                    """
+                    '''
                     set +x && export \$(cat "${env.WORKSPACE}/.env" | xargs) && set -x && \
                     iqe tests plugin ${plugin} -s -v \
                     --junitxml=junit-${plugin}-parallel.xml \
@@ -285,19 +288,19 @@ def runIQE(String plugin, Map appOptions) {
                     ${requirementsPriorityArgs} \
                     ${testImportanceArgs} \
                     ${extraArgs} \
-                    -n ${appOptions['parallelWorkerCount']} \
+                    ${xdistArgs} \
                     ${ibutsuArgs} \
                     --log-file=iqe-${plugin}-parallel.log \
                     ${browserlog} \
                     ${reportportalArgs} \
                     ${netlog} \
                     2>&1
-                    """.stripIndent()
+                    '''.stripIndent()
                 ),
                 returnStatus: true
             )
             if (status > 0) {
-                result = "FAILURE"
+                result = 'FAILURE'
                 errorMsgParallel = "Parallel test run failed with exit code ${status}."
             }
         }
@@ -307,11 +310,10 @@ def runIQE(String plugin, Map appOptions) {
         // export the .env file to load env vars that should be present even before dynaconf is
         // invoked such as IQE_TESTS_LOCAL_CONF_PATH
 
-
         // check that there are actually tests to run
         collectionStatus = sh(
             script: (
-                """
+                '''
                 set +x && export \$(cat "${env.WORKSPACE}/.env" | xargs) && set -x && \
                 iqe tests plugin ${plugin} -s -v --collect-only \
                 ${markerArgs} \
@@ -320,7 +322,7 @@ def runIQE(String plugin, Map appOptions) {
                 ${requirementsPriorityArgs} \
                 ${testImportanceArgs} \
                 ${extraArgs} \
-                """.stripIndent()
+                '''.stripIndent()
             ),
             returnStatus: true
         )
@@ -329,14 +331,14 @@ def runIQE(String plugin, Map appOptions) {
             noSequentialTests = true
         }
         else if (collectionStatus > 0) {
-            result = "FAILURE"
+            result = 'FAILURE'
             errorMsgSequential = "Sequential test run collection failed with exit code ${status}"
         }
         // only run tests when the collection status is 0
         else {
             status = sh(
                 script: (
-                    """
+                    '''
                     set +x && export \$(cat "${env.WORKSPACE}/.env" | xargs) && set -x && \
                     iqe tests plugin ${plugin} -s -v \
                     --junitxml=junit-${plugin}-sequential.xml \
@@ -352,22 +354,22 @@ def runIQE(String plugin, Map appOptions) {
                     ${reportportalArgs} \
                     ${netlog} \
                     2>&1
-                    """.stripIndent()
+                    '''.stripIndent()
                 ),
                 returnStatus: true
             )
             if (status > 0) {
-                result = "FAILURE"
+                result = 'FAILURE'
                 errorMsgSequential = "Sequential test run failed with exit code ${status}."
             }
         }
 
         if (noParallelTests && noSequentialTests) {
-            error("There were no tests collected in the sequential or parallel test runs.")
+            error('There were no tests collected in the sequential or parallel test runs.')
         }
 
         // if there were no failures recorded, it's a success
-        result = result ?: "SUCCESS"
+        result = result ?: 'SUCCESS'
 
         if (errorMsgSequential || errorMsgParallel) {
             error("${errorMsgSequential} ${errorMsgParallel}")
@@ -381,7 +383,6 @@ def runIQE(String plugin, Map appOptions) {
 
     return result
 }
-
 
 private def getSettingsFromGit(
     String settingsGitRepo, String settingsGitPath, String settingsGitCredentialsId,
@@ -403,32 +404,28 @@ private def getSettingsFromGit(
     }
 }
 
-
 private def getSettingsFromJenkinsSecret(String settingsFileCredentialsId, String settingsDir) {
     /* Load the IQE settings file from a jenkins file credentials */
     withCredentials(
-        [file(credentialsId: settingsFileCredentialsId, variable: "YAML_FILE")]
+        [file(credentialsId: settingsFileCredentialsId, variable: 'YAML_FILE')]
     ) {
         sh "cp \$YAML_FILE \"${settingsDir}/settings.local.yaml\""
     }
 }
 
-
 private def writeEnvFromCredential(String key, String credentialsId) {
     /* Helper to write a secret value to the .env file */
     withCredentials(
-        [string(credentialsId: credentialsId, variable: "SECRET")]
+        [string(credentialsId: credentialsId, variable: 'SECRET')]
     ) {
         sh "echo \"${key}=\$SECRET\" >> \"${env.WORKSPACE}/.env\""
     }
 }
 
-
 private def writeEnv(String key, String value) {
     /* Helper to write a String env value to the .env file */
     sh "echo \"${key}=${value}\" >> \"${env.WORKSPACE}/.env\""
 }
-
 
 def writeVaultEnvVars(Map options) {
     /* Parse options for vault settings and write the vault env vars to the .env file */
@@ -463,7 +460,6 @@ def writeVaultEnvVars(Map options) {
     writeEnv('DYNACONF_IQE_VAULT_LOADER_ENABLED', options['vaultEnabled'].toString())
 }
 
-
 private def configIQE(Map options) {
     /* Sets up the settings.local.yaml and .env files */
     def settingsDir = "${env.WORKSPACE}/iqe_local_settings"
@@ -493,11 +489,10 @@ private def configIQE(Map options) {
     }
 }
 
-
 private def createTestStages(String appName, Map appConfig) {
     def appOptions = appConfig['options']
 
-    stage("Configure IQE") {
+    stage('Configure IQE') {
         configIQE(appOptions)
     }
 
@@ -514,23 +509,22 @@ private def createTestStages(String appName, Map appConfig) {
         pluginResults[appName] = result
     }
 
-    stage("Results") {
-        def pluginsFailed = pluginResults.findAll { it.value == "FAILURE" }
-        def pluginsPassed = pluginResults.findAll { it.value == "SUCCESS" }
+    stage('Results') {
+        def pluginsFailed = pluginResults.findAll { it.value == 'FAILURE' }
+        def pluginsPassed = pluginResults.findAll { it.value == 'SUCCESS' }
 
         // stash junit files so that other nodes can read them later
-        stash name: "${appName}-stash-files", allowEmpty: true, includes: "junit-*.xml"
+        stash name: "${appName}-stash-files", allowEmpty: true, includes: 'junit-*.xml'
 
-        echo "Plugins passed: ${pluginsPassed.keySet().join(",")}"
+        echo "Plugins passed: ${pluginsPassed.keySet().join(',')}"
         if (pluginsFailed) {
-            error "Plugins failed: ${pluginsFailed.keySet().join(",")}"
+            error "Plugins failed: ${pluginsFailed.keySet().join(',')}"
         }
         else if (!pluginsPassed) {
-            error "No plugins failed nor passed. Were the test runs aborted early?"
+            error 'No plugins failed nor passed. Were the test runs aborted early?'
         }
     }
 }
-
 
 def prepareStages(Map defaultOptions, Map appConfigs) {
     /*
@@ -551,13 +545,13 @@ def prepareStages(Map defaultOptions, Map appConfigs) {
 
     echo "options: ${options}"
 
-    appConfigs.each{ k, v ->
+    appConfigs.each { k, v ->
         // re-define vars, see https://jenkins.io/doc/pipeline/examples/#parallel-multiple-nodes
         def appName = k
         def appConfig = v
 
         if (!appConfig instanceof Map) {
-            error("Incorrect syntax for appConfig: must be a Map")
+            error('Incorrect syntax for appConfig: must be a Map')
         }
 
         def appOptions = mergeAppOptions(options, appConfig.get('options', [:]))
@@ -588,12 +582,12 @@ def prepareStages(Map defaultOptions, Map appConfigs) {
  */
 def writeIbutsuHtml() {
     writeFile(
-        file: "ibutsu.html",
+        file: 'ibutsu.html',
         text: (
             "<a href=\"https://ibutsu.apps.ocp4.prod.psi.redhat.com/results" +
             "?metadata.jenkins.build_number=${env.BUILD_NUMBER}" +
             "&metadata.jenkins.job_name=${env.JOB_NAME}\">Click here</a>"
         )
     )
-    archiveArtifacts "ibutsu.html"
+    archiveArtifacts 'ibutsu.html'
 }
